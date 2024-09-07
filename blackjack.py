@@ -6,6 +6,9 @@ BLACKJACK_ODDS = 1.5
 class Actions(Enum):
     HIT = 0,
     STAND = 1,
+    DOUBLE_HIT = 2,
+    DOUBLE_STAND = 3,
+    SPLIT = 4,
 
 class Strategies(Enum):
     HIT_16 = 0,
@@ -14,6 +17,7 @@ class Strategies(Enum):
     LET_DEALER_BUST = 3,
     COUNT = 4,
     PERFECT_BASIC_HARD = 5,
+    PERFECT_BASIC = 6,
 
 class ResultTracker:
     def __init__(self):
@@ -26,7 +30,7 @@ class ResultTracker:
         total_wins = self.score_wins + self.dealer_bust_win + self.blackjack
         total_loss = self.score_losses + self.bust_loss
 
-        return "{wins}/{ls}    [BJ: {bj} S:{sw} DB:{db}] / [L:{sl} B:{bl}]".format(wins=total_wins, sw=self.score_wins, db=self.dealer_bust_win, ls=total_loss, sl = self.score_losses, bl=self.bust_loss, bj = self.blackjack)
+        return "\t\t {wins}/{ls} ({perc:4.4}%)    [BJ: {bj} S:{sw} DB:{db}] / [L:{sl} B:{bl}]".format(wins=total_wins, sw=self.score_wins, db=self.dealer_bust_win, ls=total_loss, sl = self.score_losses, bl=self.bust_loss, bj = self.blackjack, perc=100*total_wins/(total_wins+total_loss))
 
 class Card:
     def __init__(self, value, suit, deck_id):
@@ -49,11 +53,13 @@ class Hand:
         self.sum_low = 0
         self.sum_high = 0
         self.aces = 0
-
+        self.non_ace_total = 0
     def add_card(self, card):
         self.hand.append(card)
         if(card.value == "A"):
             self.aces += 1
+        else:
+            self.non_ace_total += card.get_value() 
         self.calc_hand_sum()
     def calc_hand_sum(self):
         self.sum_low = 0
@@ -90,6 +96,7 @@ class Hand:
         self.sum_low = 0
         self.sum_high = 0
         self.aces = 0
+        self.non_ace_total = 0
 
     def ask(self):
         if self.sum_low < 17:
@@ -168,14 +175,58 @@ class Player:
                     if total >= 17:
                         return Actions.STAND
                     elif total == 11:
-                        return Actions.HIT
+                        return Actions.DOUBLE_HIT
                     elif dealer_upcard <= 6 and total >= 13:
                         return Actions.STAND
                     elif dealer_upcard <= 6 and dealer_upcard >= 4 and total == 12:
                         return Actions.STAND
                     elif dealer_upcard <= 9 and total == 10:
-                        return Actions.HIT
+                        return Actions.DOUBLE_HIT
                     elif dealer_upcard <= 6 and dealer_upcard >= 3 and total == 9:
+                        return Actions.DOUBLE_HIT
+                    else:
+                        return Actions.HIT
+                else:
+                    if total >= 17:
+                        return Actions.STAND 
+                    else:
+                        return Actions.HIT
+            case Strategies.PERFECT_BASIC:
+                total = self.hand.sum_low
+                if self.hand.aces == 0: # hard totals
+                    if total >= 17:
+                        return Actions.STAND
+                    elif total == 11:
+                        return Actions.DOUBLE_HIT
+                    elif dealer_upcard <= 6 and total >= 13:
+                        return Actions.STAND
+                    elif dealer_upcard <= 6 and dealer_upcard >= 4 and total == 12:
+                        return Actions.STAND
+                    elif dealer_upcard <= 9 and total == 10:
+                        return Actions.DOUBLE_HIT
+                    elif dealer_upcard <= 6 and dealer_upcard >= 3 and total == 9:
+                        return Actions.DOUBLE_HIT
+                    else:
+                        return Actions.HIT
+                if self.hand.aces == 1:
+                    non_ace = self.hand.non_ace_total
+                    if non_ace == 9:
+                        return Actions.STAND
+                    elif non_ace == 8 and dealer_upcard == 6:
+                        return Actions.DOUBLE_STAND
+                    elif non_ace == 8:
+                        return Actions.STAND
+                    elif non_ace == 7 and dealer_upcard <= 6:
+                        return Actions.DOUBLE_STAND
+                    elif non_ace == 7 and (dealer_upcard == 7 or dealer_upcard == 8):
+                        return Actions.STAND
+                    elif dealer_upcard == 5 or dealer_upcard == 6:
+                        return Actions.DOUBLE_HIT
+                    elif dealer_upcard == 4 and non_ace >= 4:
+                        return Actions.DOUBLE_HIT
+                    elif dealer_upcard == 3 and non_ace == 6:
+                        return Actions.DOUBLE_HIT
+                    else:
                         return Actions.HIT
                 else:
                     if total >= 17:
@@ -201,7 +252,7 @@ class Better(Player):
         self.cash = cash
         super().__init__(name, strategy)
     def get_bet(self):
-        bet = 500
+        bet = 100
         self.cash -= bet
         return bet
     def get_winnings(self, amnt):
@@ -258,14 +309,32 @@ class Game():
         for _ in range(0, 2):
             for player in self.players:
                 player.deal(self.shoe.draw())
-
+        #print(self.players)
         dealer_upcard = self.dealer.hand.hand[0].get_value()
         if dealer_upcard == "A":
             dealer_upcard = 11
         # Players
         for player in self.players[1:]:
-            while(player.ask(dealer_upcard) != Actions.STAND):
-                player.deal(self.shoe.draw())
+            stand = False
+            while(not stand):
+                action = player.ask(dealer_upcard)
+                match(action):
+                    case Actions.STAND:
+                        stand = True
+                    case Actions.HIT:
+                        player.deal(self.shoe.draw())
+                    case Actions.DOUBLE_HIT:
+#                        print(player.name, "doubled")
+                        player.cash -= self.table[player]
+                        self.table[player] *= 2
+                        player.deal(self.shoe.draw())
+                        stand = True
+                    case Actions.DOUBLE_STAND:
+                        player.cash -= self.table[player]
+                        self.table[player] *= 2
+                        stand = True
+
+            
         # Dealer
         while self.dealer.ask(dealer_upcard) != Actions.STAND:
             self.dealer.deal(self.shoe.draw())
@@ -277,20 +346,21 @@ class Game():
                 # blackjack
                 player.get_winnings(self.table[player] + (self.table[player] * (BLACKJACK_ODDS)))
                 player.results.blackjack += 1
+#                print(player.name, "wins blackjack")
             elif player_score == -1:
-                #print(player.name, "loses (busts)")
+#                print(player.name, "loses (busts)")
                 player.results.bust_loss += 1
             elif dealer_score == -1:
-                #print(player.name, "wins (dealer busts)")
+#                print(player.name, "wins (dealer busts)")
                 player.get_winnings(self.table[player] * 2)
                 player.results.dealer_bust_win += 1
             else:
                 if player_score > dealer_score:
-                    #print(player.name, "wins (score)")
+#                    print(player.name, "wins (score)")
                     player.get_winnings(self.table[player] * 2)
                     player.results.score_wins += 1
                 else:
-                    #print(player.name, "loses (score)")
+#                    print(player.name, "loses (score)")
                     player.results.score_losses += 1
 #        print(self.players)
         for player in self.players:
@@ -304,21 +374,24 @@ def main():
     game.shoe.shuffle()
 
     d = Dealer("Chud", Strategies.HIT_16)
-    p1 = Better("Phil", Strategies.HIT_16, 10000)
-    p2 = Better("Anderdingle", Strategies.HIT_17, 10000)
-    p3 = Better("Geoff", Strategies.PERFECT_BASIC_HARD, 10000)
+    p1 = Better("Phil", Strategies.HIT_16, 100000)
+    p2 = Better("Anderdingle", Strategies.HIT_17, 100000)
+    p3 = Better("Geoff", Strategies.PERFECT_BASIC_HARD, 100000)
+    p4 = Better("Jeff", Strategies.PERFECT_BASIC, 100000)
     game.add_player(p1)
     game.add_player(p2)
     game.add_player(p3)
+    game.add_player(p4)
     game.add_dealer(d)
 
-    for _ in range(0, 50000):
+    for _ in range(0, 100000):
         game.round()
 
 
-    print(p1.name, p1.cash, p1.results)
-    print(p2.name, p2.cash, p2.results)
-    print(p3.name, p3.cash, p3.results)
+    print("{:12} ${:}".format(p1.name, p1.cash), p1.results)
+    print("{:12} ${:}".format(p2.name, p2.cash), p2.results)
+    print("{:12} ${:}".format(p3.name, p3.cash), p3.results)
+    print("{:12} ${:}".format(p4.name, p4.cash), p4.results)
 
 if __name__ == "__main__":
     main()
