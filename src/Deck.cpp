@@ -1,11 +1,12 @@
 #include "Deck.h"
 #include "Suit.h"
-#include <random>
-#include <algorithm>
+
 
 Deck::Deck(int decks)
 {
     _decks = decks;
+    std::random_device rd;
+    std::mt19937 engine(rd());
     generate_deck();
 }
 
@@ -33,16 +34,13 @@ std::string Deck::pretty()
 
 void Deck::shuffle()
 {
-//    std::random_device rd;
-//    std::default_random_engine gen(rd);
-    std::random_device rd;
-    std::mt19937 engine(rd());
     std::shuffle(std::begin(_deck), std::end(_deck), engine);
 }
 
 void Deck::reset()
 {
     _deck.insert(_deck.end(), _dealt.begin(), _dealt.end());
+    _dealt.clear();
     shuffle();
 }
 

@@ -12,4 +12,7 @@ enum strategies {
     HIT_17=1,
     HIT_18=2,
     LET_DEALER_BUST=3,
+    COUNT=4,
+    PERFECT_BASIC_HARD=5,
+    PERFECT_BASIC=6,
 };

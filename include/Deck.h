@@ -10,6 +10,7 @@ private:
     std::vector<Card> _deck;
     std::vector<Card> _dealt;
     int _decks;
+    std::mt19937 engine;
 public:
     Deck(int decks);
     std::string pretty();

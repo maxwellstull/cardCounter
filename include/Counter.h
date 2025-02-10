@@ -1,7 +1,7 @@
 #pragma once 
-#include "Better.h"
+#include "Player.h"
 
-class Counter : public Better 
+class Counter : public Player 
 {
 private:
     int _count = 0;

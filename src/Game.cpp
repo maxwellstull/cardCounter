@@ -1,7 +1,7 @@
 #include "Game.h"
 #include <iostream>
 #include "resources.h"
-Game::Game() : shoe(1)
+Game::Game() : shoe(2)
 {
 
 }
@@ -30,7 +30,8 @@ void Game::round()
             player->deal(shoe.draw());
         }
     }
-
+    Card dealer_upcard = _dealer->get_dealer_upcard();
+    //players play
     first = true;
     action player_action;
     for( auto player : players)
@@ -43,7 +44,7 @@ void Game::round()
         bool stand = false;
         while(!stand)
         {
-            player_action = player->ask();
+            player_action = player->ask(dealer_upcard);
             switch(player_action)
             {
                 case(action::STAND):
@@ -56,16 +57,29 @@ void Game::round()
                     player->deal(shoe.draw());
                     break;
                 }
+                case(action::DOUBLE_HIT):
+                {
+                    player->withdraw(pot[player->get_name()]);
+                    pot[player->get_name()] *= 2;
+                    player->deal(shoe.draw());
+                    stand=true;
+                    break;
+                }
+                default:
+                {
+                    stand=true;
+                    break;
+                }
             }
         }
     }
 
-    while(_dealer->ask() != action::STAND)
+    while(_dealer->ask(dealer_upcard) != action::STAND)
     {
         _dealer->deal(shoe.draw());
     }
     int dealer_score = _dealer->final();
-    std::cout << "Dealer: " <<dealer_score << std::endl;
+//    std::cout << "Dealer: " <<dealer_score<<" "<<_dealer->pretty_hand() << std::endl;
     first = true;
     for( auto player : players)
     {
@@ -75,6 +89,36 @@ void Game::round()
             continue;
         }
         int player_score = player->final();
-        std::cout << "Player " << player->get_name() << ": " << player_score<<" "<<player->pretty_hand()<<std::endl;
+//        std::cout << "Player " << player->get_name() << ": " << player_score<<" "<<player->pretty_hand()<<std::endl;
+        if (player_score == 21 && player->get_hand_length() == 2)
+        {
+            //blackjack
+            player->blackjack();
+            player->get_winnings(pot[player->get_name()] * (1. + 1.5));
+        }
+        else if(player_score == -1)
+        {
+            player->bust_loss();
+        }
+        else if(dealer_score == -1)
+        {
+            player->dealer_bust_win();
+            player->get_winnings(pot[player->get_name()] * 2.);
+        }
+        else
+        {
+            if (player_score > dealer_score)
+            {
+                player->score_win();
+                player->get_winnings(pot[player->get_name()] * 2.);
+            }
+            else
+            {
+                player->score_loss();
+            }
+        }
+        player->reset();
     }
+
+    _dealer->reset();
 }

@@ -21,4 +21,7 @@ public:
     int get_sum_low() {return sum_low;}
     int get_sum_high() {return sum_high;}
     std::string pretty();
+    Card get_upcard() {return hand[0];}
+    int get_aces() {return aces;}
+    int length() {return hand.size();}
 };

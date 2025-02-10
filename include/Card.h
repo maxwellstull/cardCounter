@@ -1,10 +1,9 @@
 #pragma once 
 #include <string>
 #include "Suit.h"
+
 class Card 
 {
-public:
-    
 private:
     int _rank;
     Suit _suit;
