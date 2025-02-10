@@ -7,5 +7,5 @@ Suit::Suit(suits suit)
 
 std::string Suit::pretty()
 {
-    return suit_txt[_suit];
+    return suit_txt[_suit-1];
 }
