@@ -14,10 +14,13 @@ FetchContent_MakeAvailable(googletest)
 
 include_directories(${PROJECT_SOURCE_DIR}/include)
 add_subdirectory(src)
+add_subdirectory(lib/DeckLib)
+add_subdirectory(lib/PlayerLib)
+add_subdirectory(tests)
 
 add_executable(blackjack main.cpp)
-add_executable(tests tests/test_card.cpp tests/test_suit.cpp)
-add_test(NAME TestyMcTest COMMAND tests)
+#add_executable(tests tests/test_card.cpp tests/test_suit.cpp)
+#add_test(NAME TestyMcTest COMMAND tests)
 
-target_link_libraries(blackjack PRIVATE Card)
-target_link_libraries(tests PRIVATE gtest gtest_main Card)
+target_link_libraries(blackjack PRIVATE DeckLib PlayerLib Game)
+#target_link_libraries(tests PRIVATE gtest gtest_main Card)
